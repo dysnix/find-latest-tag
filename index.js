@@ -15,12 +15,24 @@ async function run() {
         const regex = core.getInput("regex") || null;
 
         const releasesOnly = (core.getInput("releases-only") || "false").toLowerCase() === "true";
+        const comparedValue = core.getInput("compared-to-tag") || "";
 
         // It's somewhat safe to assume that the most recenly created release is actually latest.
         const sortTagsDefault = (releasesOnly ? "false" : "true");
         const sortTags = (core.getInput("sort-tags") || sortTagsDefault).toLowerCase() === "true";
 
-        core.setOutput("tag", await getLatestTag(owner, repo, releasesOnly, prefix, regex, sortTags));
+        let latestTag = await getLatestTag(owner, repo, releasesOnly, prefix, regex, sortTags);
+        core.setOutput("tag", latestTag);
+        core.info(`tag: ${latestTag}`);
+
+        // Get comaresTo object, and set outputs if not empty
+        if (latestTag && comparedValue) {
+            let comp = compareRefOrTag(comparedValue, latestTag, regex);
+            for (let outputName in comp) {
+                core.setOutput(outputName, comp[outputName]);
+                core.info(`${outputName}: ${comp[outputName]}`);
+            }
+        }
     } catch (error) {
         core.setFailed(error);
     }
@@ -58,6 +70,23 @@ async function getLatestTag(owner, repo, releasesOnly, prefix, regex, sortTags) 
     tags.sort(cmpTags);
     const [latestTag] = tags.slice(-1);
     return latestTag;
+}
+
+function compareRefOrTag(tagRef, val, regex = "") {
+    // strip of the refs prefix
+    const tag = tagRef.replace(/refs\/(heads|tags)\//, "");
+
+    // don't respect value which doesn't match the regex
+    if (regex && !new RegExp(regex).test(tag)) {
+        return {};
+    }
+
+    let cmpres = cmpTags(tag, val);
+    return {
+        equal: cmpres === 0,
+        newer: cmpres === 1,
+        older: cmpres === -1,
+    };
 }
 
 async function* getItemsFromPages(pages) {
