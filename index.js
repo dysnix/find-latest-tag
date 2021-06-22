@@ -59,16 +59,21 @@ async function getLatestTag(owner, repo, releasesOnly, prefix, regex, sortTags) 
         }
         tags.push(tag);
     }
+
+    // Notify that no tags/releases have been found
     if (tags.length === 0) {
-        let error = `The repository "${owner}/${repo}" has no `;
-        error += releasesOnly ? "releases" : "tags";
+        let warn = `The repository "${owner}/${repo}" has no `;
+        warn += releasesOnly ? "releases" : "tags";
         if (prefix) {
-            error += ` matching "${prefix}*"`;
+            warn += ` matching "${prefix}*"`;
         }
-        throw error;
+        core.warning(warn);
+        return "";
     }
+
     tags.sort(cmpTags);
     const [latestTag] = tags.slice(-1);
+
     return latestTag;
 }
 
